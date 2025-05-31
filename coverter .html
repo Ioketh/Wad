@@ -2,12 +2,13 @@
 <html lang="en">
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Kitchen Measurement Calculator</title>
+  <title>Site Measurement Calculator</title>
   <style>
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       margin: 0;
-      background: #e9ecef;
+      background: url('https://www.transparenttextures.com/patterns/concrete-wall.png');
+      background-color: #e9ecef;
       padding: 20px;
     }
     h2 {
@@ -24,14 +25,16 @@
       padding: 10px 20px;
       margin: 5px;
       border: none;
-      background: #007bff;
+      background: linear-gradient(145deg, #007bff, #00d4ff);
       color: white;
       cursor: pointer;
       border-radius: 5px;
-      transition: background 0.3s;
+      box-shadow: 0 0 10px #00d4ff;
+      transition: transform 0.3s, box-shadow 0.3s;
     }
     .tab button:hover, .tab button.active {
-      background: #0056b3;
+      transform: scale(1.05);
+      box-shadow: 0 0 15px #00bfff;
     }
     .tabcontent {
       display: none;
@@ -59,15 +62,16 @@
       padding: 10px;
       border-radius: 5px;
       margin-bottom: 10px;
-      display: grid;
-      grid-template-columns: repeat(5, 1fr);
+      display: flex;
+      flex-wrap: wrap;
       gap: 10px;
       align-items: center;
     }
-    .measurement-entry input, .measurement-entry select {
-      width: 100%;
-      padding: 5px;
-      box-sizing: border-box;
+    .measurement-entry input[type="text"] {
+      flex: 2 1 200px;
+    }
+    .measurement-entry input:not([type="text"]), .measurement-entry select {
+      flex: 1 1 100px;
     }
     .measurement-entry button.remove-btn {
       background: #dc3545;
@@ -76,7 +80,6 @@
       padding: 5px 10px;
       border-radius: 3px;
       cursor: pointer;
-      justify-self: center;
     }
     .calculator-grid {
       display: grid;
@@ -90,14 +93,27 @@
       border: 1px solid #adb5bd;
       border-radius: 5px;
       cursor: pointer;
+      box-shadow: 0 0 5px #ccc;
     }
     .calculator-grid button:hover {
       background: #dee2e6;
     }
+    @media (max-width: 600px) {
+      .measurement-entry {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .measurement-entry input[type="text"] {
+        width: 100%;
+      }
+      .calculator-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
   </style>
 </head>
 <body>
-  <h2>Kitchen Measurement Calculator</h2>
+  <h2>Site Measurement Calculator</h2>
   <div class="tab">
     <button class="tablinks" onclick="openTab(event, 'RMTCalc')">Running Meter Calculator</button>
     <button class="tablinks" onclick="openTab(event, 'FullCalc')">Detailed Measurement Calculator</button>
@@ -106,13 +122,15 @@
 
   <div id="RMTCalc" class="tabcontent">
     <h3>Running Meter & Price Calculator</h3>
-    <label for="area">Enter Area:</label>
-    <input type="number" id="area" placeholder="Enter area" step="any" />
+    <label for="area">Enter Total Square/Running Meter (already calculated):</label>
+    <input type="number" id="area" placeholder="e.g. 20" step="any" />
     <label for="unit">Select Unit:</label>
     <select id="unit">
       <option value="m2">Square Meters (m²)</option>
+      <option value="rmt">Running Meters</option>
       <option value="ft2">Square Feet (ft²)</option>
       <option value="cm2">Square Centimeters (cm²)</option>
+      <option value="mm2">Square Millimeters (mm²)</option>
     </select>
     <label for="price">Price (Ugshs):</label>
     <input type="number" id="price" placeholder="Enter price" step="any" />
@@ -169,84 +187,62 @@
     }
 
     function addMeasurement() {
-      const entriesDiv = document.getElementById("entries");
-
-      const entryDiv = document.createElement("div");
-      entryDiv.classList.add("measurement-entry");
-
-      entryDiv.innerHTML = `
-        <input type="text" class="desc" placeholder="Description" />
-        <input type="number" class="length" placeholder="Length" step="any" min="0" />
-        <select class="length-unit">
+      const entry = document.createElement("div");
+      entry.className = "measurement-entry";
+      entry.innerHTML = `
+        <input type="text" placeholder="Description" />
+        <input type="number" placeholder="Length" step="any" />
+        <input type="number" placeholder="Width" step="any" />
+        <select>
           <option value="m">m</option>
           <option value="cm">cm</option>
-          <option value="mm">mm</option>
           <option value="ft">ft</option>
-        </select>
-        <input type="number" class="width" placeholder="Width" step="any" min="0" />
-        <select class="width-unit">
-          <option value="m">m</option>
-          <option value="cm">cm</option>
           <option value="mm">mm</option>
-          <option value="ft">ft</option>
         </select>
-        <button class="remove-btn" title="Remove" type="button">X</button>
+        <button class="remove-btn" onclick="this.parentElement.remove()">Remove</button>
       `;
-
-      entryDiv.querySelector(".remove-btn").addEventListener("click", () => {
-        entriesDiv.removeChild(entryDiv);
-      });
-
-      entriesDiv.appendChild(entryDiv);
+      document.getElementById("entries").appendChild(entry);
     }
 
-    function toMeters(value, unit) {
-      switch (unit) {
-        case 'cm': return value / 100;
-        case 'mm': return value / 1000;
-        case 'ft': return value * 0.3048;
-        default: return value;
-      }
+    function unitToMeters(val, unit) {
+      if (unit === "cm") return val / 100;
+      if (unit === "mm") return val / 1000;
+      if (unit === "ft") return val * 0.3048;
+      return val;
     }
 
     function calculateDetailed() {
-      const entriesDiv = document.getElementById("entries");
-      const detailedResult = document.getElementById("detailedResult");
-      const entries = entriesDiv.querySelectorAll(".measurement-entry");
-      const results = {};
+      const entries = document.getElementsByClassName("measurement-entry");
+      const summary = {};
+      let totalSqm = 0, totalRmt = 0;
 
-      for (let i = 0; i < entries.length; i++) {
-        const desc = entries[i].querySelector(".desc").value.trim() || `Item ${i+1}`;
-        const l = parseFloat(entries[i].querySelector(".length").value);
-        const lUnit = entries[i].querySelector(".length-unit").value;
-        const w = parseFloat(entries[i].querySelector(".width").value);
-        const wUnit = entries[i].querySelector(".width-unit").value;
+      for (let entry of entries) {
+        const [desc, length, width, unit] = entry.querySelectorAll("input, select");
+        const description = desc.value.trim() || "(No Description)";
+        const l = parseFloat(length.value);
+        const w = parseFloat(width.value);
+        const u = unit.value;
+        if (isNaN(l) || isNaN(w) || l <= 0 || w <= 0) continue;
 
-        const lengthM = toMeters(l, lUnit);
-        const widthM = toMeters(w, wUnit);
+        const l_m = unitToMeters(l, u);
+        const w_m = unitToMeters(w, u);
+        const sqm = l_m * w_m;
+        const rmt = sqm / 0.6;
+        totalSqm += sqm;
+        totalRmt += rmt;
 
-        if (isNaN(lengthM) || isNaN(widthM) || lengthM <= 0 || widthM <= 0) continue;
-
-        const area = lengthM * widthM;
-        const rmt = area / 0.6;
-
-        if (!results[desc]) results[desc] = { area: 0, rmt: 0 };
-        results[desc].area += area;
-        results[desc].rmt += rmt;
+        if (!summary[description]) summary[description] = { sqm: 0, rmt: 0 };
+        summary[description].sqm += sqm;
+        summary[description].rmt += rmt;
       }
 
-      let output = "";
-      let totalArea = 0, totalRMT = 0;
-
-      for (const [desc, data] of Object.entries(results)) {
-        output += `${desc}:
-  Area = ${data.area.toFixed(2)} m²\n  Running Meters = ${data.rmt.toFixed(2)} m\n\n`;
-        totalArea += data.area;
-        totalRMT += data.rmt;
+      let result = "Measurement Summary:\n";
+      for (let key in summary) {
+        result += `\n${key}:\n  Total Area: ${summary[key].sqm.toFixed(2)} m²\n  Total Running Meters: ${summary[key].rmt.toFixed(2)} m\n`;
       }
+      result += `\nOverall Total Area: ${totalSqm.toFixed(2)} m²\nOverall Running Meters: ${totalRmt.toFixed(2)} m`;
 
-      output += `Total Area: ${totalArea.toFixed(2)} m²\nTotal Running Meters: ${totalRMT.toFixed(2)} m`;
-      detailedResult.textContent = output || "Please enter valid data.";
+      document.getElementById("detailedResult").textContent = result;
     }
 
     function calculateRMT() {
@@ -257,18 +253,24 @@
       const rmtResult = document.getElementById("rmtResult");
 
       if (isNaN(area) || area <= 0 || isNaN(price) || price <= 0) {
-        rmtResult.textContent = "Please enter valid area and price.";
+        rmtResult.textContent = "Please enter valid amount and price.";
         return;
       }
 
-      let sqm = area;
-      if (unit === "ft2") sqm = area * 0.092903;
-      if (unit === "cm2") sqm = area / 10000;
+      let sqm, rmt;
+      if (unit === "rmt") {
+        rmt = area;
+        sqm = rmt * 0.6;
+      } else {
+        sqm = area;
+        if (unit === "ft2") sqm = area * 0.092903;
+        if (unit === "cm2") sqm = area / 10000;
+        if (unit === "mm2") sqm = area / 1e6;
+        rmt = sqm / 0.6;
+      }
 
-      const rmt = sqm / 0.6;
       const priceBasedOn = pricingBasis === "sqm" ? sqm * price : rmt * price;
-
-      rmtResult.textContent = `Area: ${sqm.toFixed(3)} m²\nRunning Meters: ${rmt.toFixed(3)} m\nPrice Based on ${pricingBasis === 'sqm' ? 'Square Meters' : 'Running Meters'}: Ugshs ${priceBasedOn.toFixed(2)}`;
+      rmtResult.textContent = `Total Square Meters: ${sqm.toFixed(3)} m²\nTotal Running Meters: ${rmt.toFixed(3)} m\nPrice Based on ${pricingBasis === 'sqm' ? 'Square Meters' : 'Running Meters'}: Ugshs ${priceBasedOn.toFixed(2)}`;
     }
 
     function appendBasic(val) {
@@ -282,20 +284,13 @@
     }
 
     function calculateBasic() {
-      const input = document.getElementById("basicInput").value;
-      const result = document.getElementById("basicResult");
       try {
-        const output = eval(input);
-        result.textContent = `Result: ${output}`;
-      } catch (e) {
-        result.textContent = "Invalid expression.";
+        const result = eval(document.getElementById("basicInput").value);
+        document.getElementById("basicResult").textContent = `Result: ${result}`;
+      } catch {
+        document.getElementById("basicResult").textContent = "Invalid Expression";
       }
     }
-
-    document.addEventListener("DOMContentLoaded", () => {
-      document.querySelector(".tablinks").click();
-      addMeasurement();
-    });
   </script>
 </body>
 </html>
