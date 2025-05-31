@@ -67,10 +67,13 @@
       gap: 10px;
       align-items: center;
     }
-    .measurement-entry input[type="text"] {
-      flex: 2 1 200px;
+    /* Description input is wide on small devices */
+    .measurement-entry input.description {
+      flex: 1 1 100%;
     }
-    .measurement-entry input:not([type="text"]), .measurement-entry select {
+    /* Other inputs smaller */
+    .measurement-entry input:not(.description), 
+    .measurement-entry select {
       flex: 1 1 100px;
     }
     .measurement-entry button.remove-btn {
@@ -80,6 +83,7 @@
       padding: 5px 10px;
       border-radius: 3px;
       cursor: pointer;
+      flex: 0 0 auto;
     }
     .calculator-grid {
       display: grid;
@@ -103,19 +107,38 @@
         flex-direction: column;
         align-items: stretch;
       }
-      .measurement-entry input[type="text"] {
+      .measurement-entry input.description {
         width: 100%;
+      }
+      .measurement-entry input:not(.description), 
+      .measurement-entry select {
+        width: 100%;
+        flex: none;
       }
       .calculator-grid {
         grid-template-columns: repeat(2, 1fr);
       }
+    }
+    body::after {
+      content: "";
+      display: block;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 100px;
+      background: radial-gradient(circle at 50% 100%, #007bff55 0%, transparent 70%),
+                  radial-gradient(circle at 60% 100%, #00d4ff33 0%, transparent 70%),
+                  radial-gradient(circle at 40% 100%, #00aaff22 0%, transparent 70%);
+      pointer-events: none;
+      z-index: -1;
     }
   </style>
 </head>
 <body>
   <h2>Site Measurement Calculator</h2>
   <div class="tab">
-    <button class="tablinks" onclick="openTab(event, 'RMTCalc')">Running Meter Calculator</button>
+    <button class="tablinks" onclick="openTab(event, 'RMTCalc')" id="defaultOpen">Running Meter Calculator</button>
     <button class="tablinks" onclick="openTab(event, 'FullCalc')">Detailed Measurement Calculator</button>
     <button class="tablinks" onclick="openTab(event, 'BasicCalc')">Basic Calculator</button>
   </div>
@@ -177,6 +200,7 @@
   </div>
 
   <script>
+    // Tab switching function
     function openTab(evt, tabName) {
       const tabcontent = document.getElementsByClassName("tabcontent");
       for (let i = 0; i < tabcontent.length; i++) tabcontent[i].style.display = "none";
@@ -185,111 +209,212 @@
       document.getElementById(tabName).style.display = "block";
       evt.currentTarget.classList.add("active");
     }
+    // Open default tab
+    document.getElementById("defaultOpen").click();
 
-    function addMeasurement() {
-      const entry = document.createElement("div");
-      entry.className = "measurement-entry";
-      entry.innerHTML = `
-        <input type="text" placeholder="Description" />
-        <input type="number" placeholder="Length" step="any" />
-        <input type="number" placeholder="Width" step="any" />
-        <select>
-          <option value="m">m</option>
-          <option value="cm">cm</option>
-          <option value="ft">ft</option>
-          <option value="mm">mm</option>
-        </select>
-        <button class="remove-btn" onclick="this.parentElement.remove()">Remove</button>
-      `;
-      document.getElementById("entries").appendChild(entry);
-    }
-
-    function unitToMeters(val, unit) {
-      if (unit === "cm") return val / 100;
-      if (unit === "mm") return val / 1000;
-      if (unit === "ft") return val * 0.3048;
-      return val;
-    }
-
-    function calculateDetailed() {
-      const entries = document.getElementsByClassName("measurement-entry");
-      const summary = {};
-      let totalSqm = 0, totalRmt = 0;
-
-      for (let entry of entries) {
-        const [desc, length, width, unit] = entry.querySelectorAll("input, select");
-        const description = desc.value.trim() || "(No Description)";
-        const l = parseFloat(length.value);
-        const w = parseFloat(width.value);
-        const u = unit.value;
-        if (isNaN(l) || isNaN(w) || l <= 0 || w <= 0) continue;
-
-        const l_m = unitToMeters(l, u);
-        const w_m = unitToMeters(w, u);
-        const sqm = l_m * w_m;
-        const rmt = sqm / 0.6;
-        totalSqm += sqm;
-        totalRmt += rmt;
-
-        if (!summary[description]) summary[description] = { sqm: 0, rmt: 0 };
-        summary[description].sqm += sqm;
-        summary[description].rmt += rmt;
-      }
-
-      let result = "Measurement Summary:\n";
-      for (let key in summary) {
-        result += `\n${key}:\n  Total Area: ${summary[key].sqm.toFixed(2)} m²\n  Total Running Meters: ${summary[key].rmt.toFixed(2)} m\n`;
-      }
-      result += `\nOverall Total Area: ${totalSqm.toFixed(2)} m²\nOverall Running Meters: ${totalRmt.toFixed(2)} m`;
-
-      document.getElementById("detailedResult").textContent = result;
-    }
-
+    // Running Meter & Price Calculator
     function calculateRMT() {
       const area = parseFloat(document.getElementById("area").value);
       const unit = document.getElementById("unit").value;
       const price = parseFloat(document.getElementById("price").value);
       const pricingBasis = document.getElementById("pricingBasis").value;
-      const rmtResult = document.getElementById("rmtResult");
 
-      if (isNaN(area) || area <= 0 || isNaN(price) || price <= 0) {
-        rmtResult.textContent = "Please enter valid amount and price.";
+      if (isNaN(area) || isNaN(price)) {
+        document.getElementById("rmtResult").textContent = "Please enter valid area and price.";
         return;
       }
 
-      let sqm, rmt;
-      if (unit === "rmt") {
-        rmt = area;
-        sqm = rmt * 0.6;
-      } else {
-        sqm = area;
-        if (unit === "ft2") sqm = area * 0.092903;
-        if (unit === "cm2") sqm = area / 10000;
-        if (unit === "mm2") sqm = area / 1e6;
-        rmt = sqm / 0.6;
+      let sqm;
+      switch (unit) {
+        case "rmt": sqm = area * 0.6; break;
+        case "m2": sqm = area; break;
+        case "ft2": sqm = area / 10.7639; break;
+        case "cm2": sqm = area / 10000; break;
+        case "mm2": sqm = area / 1000000; break;
+        default: sqm = 0;
+      }
+      const rmt = sqm / 0.6;
+
+      const cost = pricingBasis === "sqm" ? price * sqm : price * rmt;
+
+      const result = `Converted:
+Square Meters: ${sqm.toFixed(2)} m²
+Running Meters: ${rmt.toFixed(2)} RMT
+
+Total Price (based on ${pricingBasis === "sqm" ? "Square Meters" : "Running Meters"}): ${cost.toFixed(2)} Ugshs`;
+
+      document.getElementById("rmtResult").textContent = result;
+    }
+
+    // Add a measurement entry block for Detailed Measurement Calculator
+    function addMeasurement() {
+      const entriesDiv = document.getElementById("entries");
+
+      const entryDiv = document.createElement("div");
+      entryDiv.className = "measurement-entry";
+
+      // Description input (wide)
+      const descInput = document.createElement("input");
+      descInput.type = "text";
+      descInput.placeholder = "Description";
+      descInput.className = "description";
+
+      // Length input
+      const lengthInput = document.createElement("input");
+      lengthInput.type = "number";
+      lengthInput.placeholder = "Length";
+      lengthInput.min = "0";
+      lengthInput.step = "any";
+
+      // Width input
+      const widthInput = document.createElement("input");
+      widthInput.type = "number";
+      widthInput.placeholder = "Width";
+      widthInput.min = "0";
+      widthInput.step = "any";
+
+      // Quantity input
+      const qtyInput = document.createElement("input");
+      qtyInput.type = "number";
+      qtyInput.placeholder = "Quantity";
+      qtyInput.min = "1";
+      qtyInput.step = "1";
+      qtyInput.value = 1;
+
+      // Unit select
+      const unitSelect = document.createElement("select");
+      const units = [
+        { val: "m", text: "Meter (m)" },
+        { val: "cm", text: "Centimeter (cm)" },
+        { val: "mm", text: "Millimeter (mm)" },
+        { val: "ft", text: "Feet (ft)" }
+      ];
+      units.forEach(u => {
+        const opt = document.createElement("option");
+        opt.value = u.val;
+        opt.textContent = u.text;
+        unitSelect.appendChild(opt);
+      });
+
+      // Remove button
+      const removeBtn = document.createElement("button");
+      removeBtn.textContent = "Remove";
+      removeBtn.className = "remove-btn";
+      removeBtn.onclick = () => entryDiv.remove();
+
+      // Append all to entryDiv
+      entryDiv.appendChild(descInput);
+      entryDiv.appendChild(lengthInput);
+      entryDiv.appendChild(widthInput);
+      entryDiv.appendChild(qtyInput);
+      entryDiv.appendChild(unitSelect);
+      entryDiv.appendChild(removeBtn);
+
+      entriesDiv.appendChild(entryDiv);
+    }
+
+    // Convert length from input unit to meters
+    function convertToMeters(value, unit) {
+      if (isNaN(value) || value <= 0) return 0;
+      switch (unit) {
+        case "m": return value;
+        case "cm": return value / 100;
+        case "mm": return value / 1000;
+        case "ft": return value * 0.3048;
+        default: return 0;
+      }
+    }
+
+    // Calculate detailed measurement totals grouped by description
+    function calculateDetailed() {
+      const entriesDiv = document.getElementById("entries");
+      const entryDivs = entriesDiv.getElementsByClassName("measurement-entry");
+      if (entryDivs.length === 0) {
+        document.getElementById("detailedResult").textContent = "Please add at least one measurement entry.";
+        return;
       }
 
-      const priceBasedOn = pricingBasis === "sqm" ? sqm * price : rmt * price;
-      rmtResult.textContent = `Total Square Meters: ${sqm.toFixed(3)} m²\nTotal Running Meters: ${rmt.toFixed(3)} m\nPrice Based on ${pricingBasis === 'sqm' ? 'Square Meters' : 'Running Meters'}: Ugshs ${priceBasedOn.toFixed(2)}`;
+      const groups = {}; // { description: totalSqMeters }
+
+      let errors = [];
+
+      for (let i = 0; i < entryDivs.length; i++) {
+        const entry = entryDivs[i];
+        const desc = entry.querySelector("input.description").value.trim();
+        const length = parseFloat(entry.querySelectorAll("input")[1].value);
+        const width = parseFloat(entry.querySelectorAll("input")[2].value);
+        const qty = parseInt(entry.querySelectorAll("input")[3].value);
+        const unit = entry.querySelector("select").value;
+
+        if (!desc) {
+          errors.push(`Entry ${i + 1}: Description is required.`);
+          continue;
+        }
+        if (isNaN(length) || length <= 0) {
+          errors.push(`Entry ${i + 1}: Length must be a positive number.`);
+          continue;
+        }
+        if (isNaN(width) || width <= 0) {
+          errors.push(`Entry ${i + 1}: Width must be a positive number.`);
+          continue;
+        }
+        if (isNaN(qty) || qty <= 0) {
+          errors.push(`Entry ${i + 1}: Quantity must be a positive integer.`);
+          continue;
+        }
+
+        const lengthMeters = convertToMeters(length, unit);
+        const widthMeters = convertToMeters(width, unit);
+        const areaSqMeters = lengthMeters * widthMeters * qty;
+
+        if (groups[desc]) groups[desc] += areaSqMeters;
+        else groups[desc] = areaSqMeters;
+      }
+
+      if (errors.length > 0) {
+        document.getElementById("detailedResult").textContent = "Errors:\n" + errors.join("\n");
+        return;
+      }
+
+      // Prepare results string
+      let resultText = "Detailed Measurement Totals:\n\n";
+      let grandTotal = 0;
+      for (const desc in groups) {
+        const sqm = groups[desc];
+        const rmt = sqm / 0.6;
+        resultText += `${desc}:\n  - Square Meters: ${sqm.toFixed(3)} m²\n  - Running Meters: ${rmt.toFixed(3)} RMT\n\n`;
+        grandTotal += sqm;
+      }
+      resultText += `Grand Total:\n  - Square Meters: ${grandTotal.toFixed(3)} m²\n  - Running Meters: ${(grandTotal / 0.6).toFixed(3)} RMT`;
+
+      document.getElementById("detailedResult").textContent = resultText;
     }
 
-    function appendBasic(val) {
-      const input = document.getElementById("basicInput");
-      input.value += val;
-    }
+    // Basic calculator code
+    let basicExpression = "";
 
-    function clearBasic() {
-      document.getElementById("basicInput").value = "";
-      document.getElementById("basicResult").textContent = "";
+    function appendBasic(char) {
+      basicExpression += char;
+      document.getElementById("basicInput").value = basicExpression;
     }
 
     function calculateBasic() {
       try {
-        const result = eval(document.getElementById("basicInput").value);
-        document.getElementById("basicResult").textContent = `Result: ${result}`;
+        // eslint-disable-next-line no-eval
+        let result = eval(basicExpression);
+        if (result === undefined) result = "";
+        document.getElementById("basicResult").textContent = "Result: " + result;
+        basicExpression = result.toString();
+        document.getElementById("basicInput").value = basicExpression;
       } catch {
-        document.getElementById("basicResult").textContent = "Invalid Expression";
+        document.getElementById("basicResult").textContent = "Invalid expression.";
       }
+    }
+
+    function clearBasic() {
+      basicExpression = "";
+      document.getElementById("basicInput").value = "";
+      document.getElementById("basicResult").textContent = "";
     }
   </script>
 </body>
